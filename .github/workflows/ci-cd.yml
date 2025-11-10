@@ -18,34 +18,112 @@ jobs:
       with:
         node-version: '18'
         
-    - name: Create Backup Package
+    - name: Install dependencies and build
       run: |
-        echo "Creating backup package..."
+        npm install
+        npm run build
+        
+    - name: Create Complete Backup Package
+      run: |
+        echo "Creating complete backup package..."
         
         # Create backup folder
         mkdir -p my-next-app-backup
         
-        # Copy files
-        cp -r app my-next-app-backup/ || echo "app folder copied"
-        cp -r public my-next-app-backup/ || echo "public folder copied"
+        # Copy ALL essential files and folders
+        echo "📁 Copying project structure..."
+        cp -r app my-next-app-backup/ 2>/dev/null || echo "app folder not found"
+        cp -r src my-next-app-backup/ 2>/dev/null || echo "src folder not found"
+        cp -r public my-next-app-backup/ 2>/dev/null || echo "public folder not found"
+        cp -r components my-next-app-backup/ 2>/dev/null || echo "components folder not found"
+        cp -r lib my-next-app-backup/ 2>/dev/null || echo "lib folder not found"
+        
+        # Copy all configuration files
         cp package.json my-next-app-backup/
         cp package-lock.json my-next-app-backup/ 2>/dev/null || echo "No package-lock.json"
+        cp next.config.* my-next-app-backup/ 2>/dev/null || echo "No next config files"
+        cp tsconfig.json my-next-app-backup/ 2>/dev/null || echo "No tsconfig.json"
+        cp jsconfig.json my-next-app-backup/ 2>/dev/null || echo "No jsconfig.json"
+        cp *.env my-next-app-backup/ 2>/dev/null || echo "No env files"
+        cp *.env.local my-next-app-backup/ 2>/dev/null || echo "No env.local files"
         
-        # Create simple batch file without special characters
-        echo "echo Starting MY-NEXT-APP" > my-next-app-backup/RUN.bat
-        echo "npm install" >> my-next-app-backup/RUN.bat
-        echo "npm run dev" >> my-next-app-backup/RUN.bat
-        echo "pause" >> my-next-app-backup/RUN.bat
+        # Create improved Windows batch file
+        cat > my-next-app-backup/RUN_ME.bat << 'EOF'
+@echo off
+echo =================================
+echo   MY-NEXT-APP - GITHUB BACKUP
+echo =================================
+echo.
+echo 📦 Installing dependencies...
+call npm install
+echo.
+echo 🔧 Checking for missing folders...
+if not exist "src" mkdir src
+if not exist "src\i18n" mkdir src\i18n
+echo.
+echo 🌐 Starting development server...
+echo 🚀 Open: http://localhost:3000
+echo.
+call npm run dev
+pause
+EOF
+
+        # Create Linux/Mac run script
+        cat > my-next-app-backup/run.sh << 'EOF'
+#!/bin/bash
+echo "================================="
+echo "  MY-NEXT-APP - GITHUB BACKUP"
+echo "================================="
+echo ""
+echo "📦 Installing dependencies..."
+npm install
+echo ""
+echo "🔧 Checking for missing folders..."
+mkdir -p src
+mkdir -p src/i18n
+echo ""
+echo "🌐 Starting development server..."
+npm run dev
+EOF
+        chmod +x my-next-app-backup/run.sh
         
-        # Create info file
-        echo "Backup created: $(date)" > my-next-app-backup/INFO.txt
+        # Create comprehensive info file
+        cat > my-next-app-backup/BACKUP_INFO.txt << EOF
+MY-NEXT-APP COMPLETE BACKUP
+===========================
+Created: $(date)
+Repository: $GITHUB_REPOSITORY
+Commit: $(git rev-parse --short HEAD)
+
+BACKUP CONTENTS:
+- app/          (App Router pages)
+- src/          (Source code - middleware, components, etc.)
+- public/       (Static assets)
+- package.json  (Dependencies)
+- Configuration files
+
+INSTRUCTIONS:
+1. Extract this zip file
+2. Double-click RUN_ME.bat (Windows)
+3. Or run ./run.sh (Linux/Mac)
+4. Wait for npm install to complete
+5. Server starts automatically at http://localhost:3000
+
+NOTES:
+- If you get module errors, check that all required folders exist
+- The backup includes the complete project structure
+EOF
         
-        # Create zip
+        # Create zip archive
         zip -r my-next-app-backup.zip my-next-app-backup/
-        echo "Backup created successfully!"
+        
+        echo "✅ Complete backup created successfully!"
+        echo "📁 Included folders:"
+        ls -la my-next-app-backup/
         
     - name: Upload Backup
       uses: actions/upload-artifact@v4
       with:
         name: my-next-app-backup
         path: my-next-app-backup.zip
+        retention-days: 7
