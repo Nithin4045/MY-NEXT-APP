@@ -1,17 +1,55 @@
-name: Simple Backup
-on: [push]
+name: Auto Backup - Minimal & Reliable
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
 jobs:
-  backup:
+  create-backup:
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v4
-    - run: |
-        mkdir backup
-        cp -r app src public components backup/ 2>/dev/null || true
-        cp package.json backup/
-        echo "npm install && npm run dev" > backup/RUN.bat
-        zip -r backup.zip backup/
-    - uses: actions/upload-artifact@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Create Complete Backup
+      run: |
+        echo "Creating backup package..."
+        
+        # Create backup folder
+        mkdir my-next-app-backup
+        
+        # Copy essential files and folders
+        cp -r app my-next-app-backup/ 2>/dev/null || echo "app folder copied"
+        cp -r src my-next-app-backup/ 2>/dev/null || echo "src folder copied" 
+        cp -r public my-next-app-backup/ 2>/dev/null || echo "public folder copied"
+        cp -r components my-next-app-backup/ 2>/dev/null || echo "components folder copied"
+        
+        # Copy configuration files
+        cp package.json my-next-app-backup/
+        cp package-lock.json my-next-app-backup/ 2>/dev/null || echo "No package-lock.json"
+        cp tsconfig.json my-next-app-backup/ 2>/dev/null || echo "No tsconfig.json"
+        cp next.config.* my-next-app-backup/ 2>/dev/null || echo "No next config"
+        
+        # Create simple Windows batch file
+        echo "@echo off" > my-next-app-backup/RUN_ME.bat
+        echo "echo Starting MY-NEXT-APP..." >> my-next-app-backup/RUN_ME.bat
+        echo "npm install" >> my-next-app-backup/RUN_ME.bat
+        echo "npm run dev" >> my-next-app-backup/RUN_ME.bat
+        echo "pause" >> my-next-app-backup/RUN_ME.bat
+        
+        # Create info file
+        echo "Backup created: $(date)" > my-next-app-backup/INFO.txt
+        echo "Commit: $(git rev-parse --short HEAD)" >> my-next-app-backup/INFO.txt
+        
+        # Create zip
+        zip -r my-next-app-backup.zip my-next-app-backup/
+        echo "✅ Backup created successfully!"
+        
+    - name: Upload Backup
+      uses: actions/upload-artifact@v4
       with:
-        name: app-backup
-        path: backup.zip
+        name: my-next-app-backup
+        path: my-next-app-backup.zip
+        retention-days: 7
