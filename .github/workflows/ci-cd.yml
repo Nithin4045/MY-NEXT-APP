@@ -1,0 +1,76 @@
+name: Auto Backup to Local
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  create-backup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Build project
+      run: npm run build
+      
+    - name: Create Backup Package
+      run: |
+        echo "📦 Creating backup package..."
+        
+        # Create backup folder
+        mkdir -p my-next-app-backup
+        
+        # Copy essential files
+        cp -r app my-next-app-backup/ 2>/dev/null || echo "app folder not found"
+        cp -r public my-next-app-backup/ 2>/dev/null || echo "public folder not found"
+        cp -r src my-next-app-backup/ 2>/dev/null || echo "src folder not found"
+        cp package.json my-next-app-backup/
+        cp package-lock.json my-next-app-backup/ 2>/dev/null || echo "No package-lock.json"
+        
+        # Create Windows run script (FIXED - removed @echo off)
+        cat > my-next-app-backup/RUN_ME.bat << 'EOF'
+echo =================================
+echo   MY-NEXT-APP - GITHUB BACKUP
+echo =================================
+echo.
+echo 📦 Installing dependencies...
+npm install
+echo.
+echo 🌐 Starting development server...
+npm run dev
+pause
+EOF
+
+        # Create info file
+        echo "Backup created: $(date)" > my-next-app-backup/BACKUP_INFO.txt
+        echo "Repository: $GITHUB_REPOSITORY" >> my-next-app-backup/BACKUP_INFO.txt
+        echo "Commit: $(git rev-parse --short HEAD)" >> my-next-app-backup/BACKUP_INFO.txt
+        
+        # Create zip file
+        zip -r my-next-app-backup.zip my-next-app-backup/
+        
+        echo "✅ Backup created successfully!"
+        
+    - name: Upload Backup Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-next-app-backup
+        path: my-next-app-backup.zip
+        retention-days: 7
+        
+    - name: Success Message
+      run: |
+        echo "🎉 Backup workflow completed successfully!"
+        echo "📦 Artifact 'my-next-app-backup' is ready for download"
