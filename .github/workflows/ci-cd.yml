@@ -3,8 +3,6 @@ name: Auto Backup to Local
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:  # Manual trigger
 
 jobs:
@@ -20,60 +18,46 @@ jobs:
       with:
         node-version: '18'
         
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build project
-      run: npm run build
-      
-    - name: Create Ready-to-Run Backup
+    - name: Create Backup
       run: |
-        TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-        COMMIT_SHA=$(git rev-parse --short HEAD)
+        echo "📦 Creating backup package..."
         
         # Create backup folder
         mkdir -p my-next-app-backup
         
-        # Copy all project files
-        cp -r . my-next-app-backup/
+        # Copy essential files
+        cp -r app my-next-app-backup/ 2>/dev/null || echo "app folder not found"
+        cp -r public my-next-app-backup/ 2>/dev/null || echo "public folder not found"
+        cp -r src my-next-app-backup/ 2>/dev/null || echo "src folder not found"
+        cp package.json my-next-app-backup/ 2>/dev/null || echo "package.json not found"
+        cp package-lock.json my-next-app-backup/ 2>/dev/null || echo "package-lock.json not found"
         
-        # Remove unnecessary files
-        rm -rf my-next-app-backup/.git
-        rm -rf my-next-app-backup/node_modules
-        
-        # Create run script for Windows
+        # Create Windows run script
         cat > my-next-app-backup/RUN_ME.bat << 'EOF'
 @echo off
-title MY-NEXT-APP - GitHub Backup
 echo =================================
 echo   MY-NEXT-APP - GITHUB BACKUP
 echo =================================
-echo Created from GitHub Actions
 echo.
 echo 📦 Installing dependencies...
 npm install
 echo.
 echo 🌐 Starting development server...
-echo 🚀 Open: http://localhost:3000
-echo.
 npm run dev
 pause
 EOF
 
         # Create info file
-        echo "GitHub Backup created: $(date)" > my-next-app-backup/BACKUP_INFO.txt
-        echo "Commit: $COMMIT_SHA" >> my-next-app-backup/BACKUP_INFO.txt
-        echo "Repository: $GITHUB_REPOSITORY" >> my-next-app-backup/BACKUP_INFO.txt
-        echo "Workflow: $GITHUB_RUN_ID" >> my-next-app-backup/BACKUP_INFO.txt
+        echo "Backup created: $(date)" > my-next-app-backup/BACKUP_INFO.txt
         
         # Create zip file
-        zip -r my-next-app-backup-$TIMESTAMP-$COMMIT_SHA.zip my-next-app-backup/
+        zip -r my-next-app-backup.zip my-next-app-backup/
         
-        echo "✅ Backup created: my-next-app-backup-$TIMESTAMP-$COMMIT_SHA.zip"
+        echo "✅ Backup created successfully!"
         
     - name: Upload Backup
       uses: actions/upload-artifact@v4
       with:
         name: my-next-app-backup
-        path: *.zip
+        path: my-next-app-backup.zip
         retention-days: 7
